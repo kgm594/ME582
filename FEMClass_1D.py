@@ -411,7 +411,6 @@ class FEM1D:
             return normal_val
 
         j = 0   # keeps track of the ones removed
-        k = 0
 
         # there was a problem here only the references were saved in the new array
         # solved it using copy()
@@ -436,16 +435,15 @@ class FEM1D:
 
                 # add the value to fi
                 fi_val = eval(self.b_values[i])
-                self.fi_vector[i-j] = float(fi_val)
-                self.f_solve -= (self.k_solve[:, i-k:i-k+1]) * fi_val
+                self.fi_vector[i] = float(fi_val)
+                self.f_solve -= (self.k_solve[:, i-j:i-j+1]) * fi_val
 
                 # remove the ith column of k
                 a = self.k_solve.copy()
-                a = np.delete(a, i - k, 1)
+                a = np.delete(a, i - j, 1)
                 self.k_solve = a.copy()
 
                 j += 1
-                k += 1
 
             elif self.b_type[i] in [2, 2., '2', '2.']:
                 self.fi_map.append(i)
@@ -472,22 +470,6 @@ class FEM1D:
             elif self.b_type[i] in [0., 0, 41, 41., '41', '41.']:
                 # primary variables to be solve 0 for the same material, 41 for connection
                 self.fi_map.append(i)
-
-            elif self.b_type[i] in [42, 42., '42', '42.']:
-                # remove the ith row of all the elements including fi
-                a = self.k_solve.copy()
-                a = np.delete(a, i - j, 0)
-                self.k_solve = a.copy()
-                a = self.f_solve.copy()
-                a = np.delete(a, i - j, 0)
-                self.f_solve = a.copy()
-                a = self.b_solve.copy()
-                a = np.delete(a, i - j, 0)
-                self.b_solve = a.copy()
-                a = self.fi_vector.copy()
-                a = np.delete(a, i - j, 0)
-                self.fi_vector = a.copy()
-                j += 1
             
         if prints:
             print('k_mat\n', self.k_matrix)
@@ -515,33 +497,33 @@ class FEM1D:
             l2 = self.k_solve.shape[0]
             l1 = FEM1D.k_matrix_global.shape[0]
 
-            new_mat = np.zeros((l1+l2, l1+l2))
-            new_mat[:l1, :l1] = FEM1D.k_matrix_global[:l1, :l1]
-            new_mat[l1:, l1-1:] = self.k_solve
+            new_mat = np.zeros((l1+l2-1, l1+l2-1))
+            new_mat[:l1, :l1] += FEM1D.k_matrix_global[:l1, :l1]
+            new_mat[l1-1:, l1-1:] += self.k_solve
             FEM1D.k_matrix_global = new_mat.copy()
 
-            new_mat = np.zeros((l1 + l2, 1))
-            new_mat[:l1, 0:1] = FEM1D.f_vector_global[:l1, 0:1]
-            new_mat[l1:, 0:1] = self.f_solve[:l2, 0:1]
+            new_mat = np.zeros((l1 + l2-1, 1))
+            new_mat[:l1, 0:1] += FEM1D.f_vector_global[:l1, 0:1]
+            new_mat[l1-1:, 0:1] += self.f_solve[:l2, 0:1]
             FEM1D.f_vector_global = new_mat.copy()
 
-            new_mat = np.zeros((l1 + l2, 1))
-            new_mat[:l1, 0:1] = FEM1D.b_vector_global[:l1, 0:1]
-            new_mat[l1:, 0:1] = self.b_solve[:l2, 0:1]
+            new_mat = np.zeros((l1 + l2-1, 1))
+            new_mat[:l1, 0:1] += FEM1D.b_vector_global[:l1, 0:1]
+            new_mat[l1-1:, 0:1] += self.b_solve[:l2, 0:1]
             FEM1D.b_vector_global = new_mat.copy()
 
             l3 = FEM1D.fi_vector_global.shape[0]
             l4 = self.fi_vector.shape[0]
 
-            new_mat = np.zeros((l3 + l4, 1))
+            new_mat = np.zeros((l3 + l4-1, 1))
             new_mat[:l3, 0:1] = FEM1D.fi_vector_global[:l3, 0:1]
-            new_mat[l3:, 0:1] = self.fi_vector[:l4, 0:1]
+            new_mat[l3-1:, 0:1] = self.fi_vector[:l4, 0:1]
             FEM1D.fi_vector_global = new_mat.copy()
 
             new_mat = []
             new_mat.extend(FEM1D.fi_vector_global_map)
-            for i in self.fi_map:
-                new_mat.append(i+FEM1D.fi_vector_global_map[-1])
+            for i in range(1, len(self.fi_map)):
+                new_mat.append(self.fi_map[i]+FEM1D.fi_vector_global_map[-1])
             FEM1D.fi_vector_global_map = new_mat
 
         if prints:
